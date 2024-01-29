@@ -10,7 +10,7 @@ def mk_sentence(
     temperature: float,
     project_id: str,
     location: str,
-    words=[]  # Initialize the words list
+    words: list  # Initialize the words list
 ) -> str:
     """Ideation example with a Large Language Model"""
 
