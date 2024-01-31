@@ -4,25 +4,19 @@ import os
 from matplotlib import pyplot as plt
 import time
 import mediapipe as mp
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense,Dropout
-from tensorflow.keras.callbacks import TensorBoard
-from tensorflow.keras.callbacks import Callback
-from sklearn.model_selection import train_test_split
-from tensorflow.keras.utils import to_categorical
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import multilabel_confusion_matrix, accuracy_score
 from tensorflow.keras.models import load_model
 from scipy import stats
+from google.cloud import aiplatform
+import vertexai
+from vertexai.language_models import TextGenerationModel
 
-log_dir = os.path.join(os.getcwd(),'Logs')
-# actions = np.array(['Hi', 'Meet', 'Break Up','Nice','Smile','Crying','Normal','Me','You'])    # 가변
-# actions = np.array(['Normal', 'Me', 'You','Meet','Nice','Thank you','You','Next','Again'])    # 가변
-actions = np.array(['Normal', 'Hi', 'Meet','Nice','Age','How','Ten','Feeling','Good','Next'])    # 가변
-
+# 수화 인식 모델 설정
+actions = np.array(['Normal', 'Hi', 'Meet', 'Nice', 'Age', 'How', 'Ten', 'Feeling', 'Good', 'Next'])
 mp_holistic = mp.solutions.holistic
-mp_drawing = mp.solutions.drawing_utils #Draw utilities 
+mp_drawing = mp.solutions.drawing_utils
+model = load_model('Model2.h5')
 
+# 수화 인식 관련 함수들
 def multiple_detection(image,model):
     image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB) #Color convertion 
     image.flags.writeable = False
@@ -30,7 +24,7 @@ def multiple_detection(image,model):
     image.flags.writeable = True
     image = cv2.cvtColor(image,cv2.COLOR_RGB2BGR)
     return image,results
-    
+
 def draw_landmarks(image, results):
     mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_holistic.POSE_CONNECTIONS) # Draw pose connections
     mp_drawing.draw_landmarks(image, results.left_hand_landmarks, mp_holistic.HAND_CONNECTIONS) # Draw left hand connections
@@ -54,13 +48,6 @@ def draw_styled_landmarks(image, results):
                              mp_drawing.DrawingSpec(color=(245,66,230), thickness=2, circle_radius=2)
                              ) 
 
-# def extract_keypoints(results):
-    # pose = np.array([[res.x, res.y, res.z, res.visibility] for res in results.pose_landmarks.landmark]).flatten() if results.pose_landmarks else np.zeros(33*4)
-    # lh = np.array([[res.x, res.y, res.z] for res in results.left_hand_landmarks.landmark]).flatten() if results.left_hand_landmarks else np.zeros(21*3)
-    # rh = np.array([[res.x, res.y, res.z] for res in results.right_hand_landmarks.landmark]).flatten() if results.right_hand_landmarks else np.zeros(21*3)
-
-    # return np.concatenate([pose, lh, rh])
-
 def extract_keypoints(results):
     # Extract pose landmarks (landmarks 11 to 22)
     pose = np.array([[res.x, res.y, res.z, res.visibility] for i, res in enumerate(results.pose_landmarks.landmark) if 11 <= i + 1 <= 22]).flatten() if results.pose_landmarks else np.zeros(12*4)
@@ -74,9 +61,6 @@ def extract_keypoints(results):
     # Concatenate and return the results
     return np.concatenate([pose, lh, rh])
 
-model = load_model('Model2.h5')   # load model
-
-
 colors = [(245,117,16), (117,245,16), (16,117,245),(200,103,27),(245,117,16), (117,245,16), (16,117,245),(245,117,16), (117,245,16), (16,117,245)]
 
 def prob_viz(res, actions, input_frame, colors):
@@ -87,69 +71,71 @@ def prob_viz(res, actions, input_frame, colors):
         
     return output_frame
 
-# 1. New detection variables
+# 문장 생성 함수
+def mk_sentence(temperature: float, project_id: str, location: str, words: list) -> str:
+    vertexai.init(project=project_id, location=location)
+    parameters = {
+        "temperature": temperature,
+        "max_output_tokens": 2048,
+        "top_p": 1,
+        "top_k": 0,
+    }
+
+    model = TextGenerationModel.from_pretrained("text-bison@001")
+    prompt = "다음의 단어들을 순서대로 조합해서 자연스러운 문장으로 만들어줘. " + " ".join(words)
+    response = model.predict(prompt, **parameters)
+    return response.text
+
+# 문장 생성에 필요한 설정
+project_id = "striped-strata-411107"
+location = "asia-northeast3"
+temperature = 0.9
+
+# 수화 인식 및 문장 생성 통합 코드
 sequence = []
 sentence = []
 predictions = []
 threshold = 0.8
 
 cap = cv2.VideoCapture(0)
-# Set mediapipe model 
 with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
     while cap.isOpened():
-
-        # Read feed
         ret, frame = cap.read()
-
-        # Make detections
         image, results = multiple_detection(frame, holistic)
-        # print(results)
-        
-        # Draw landmarks
         draw_styled_landmarks(image, results)
         
-        # 2. Prediction logic
         keypoints = extract_keypoints(results)
         sequence.append(keypoints)
         sequence = sequence[-35:]
         
         if len(sequence) == 35:
             res = model.predict(np.expand_dims(sequence, axis=0))[0]
-            # print(actions[np.argmax(res)])
             predictions.append(np.argmax(res))
             
-            
-        #3. Viz logic
-            if np.unique(predictions[-15:])[0]==np.argmax(res): 
+            if np.unique(predictions[-15:])[0] == np.argmax(res): 
                 if res[np.argmax(res)] > threshold: 
-                    
                     if len(sentence) > 0: 
                         if actions[np.argmax(res)] != sentence[-1]:
                             sentence.append(actions[np.argmax(res)])
                     else:
                         sentence.append(actions[np.argmax(res)])
 
-            # if len(predictions) >= 10:
-            #     unique_actions = np.unique(predictions[-10:])
-            #     if unique_actions.size == 1 and res[np.argmax(res)] > threshold:
-            #         current_action = actions[unique_actions[0]]
-            #         sentence.append(current_action)
-
             if len(sentence) > 5: 
-                sentence = sentence[-1:]
+                sentence = sentence[-5:]
 
-            # Viz probabilities
             image = prob_viz(res, actions, image, colors)
             
         cv2.rectangle(image, (0,0), (640, 40), (245, 117, 16), -1)
-        cv2.putText(image, ' '.join(sentence), (3,30), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(image, ' '.join(sentence), (3,30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
         
-        # Show to screen
+        if len(sentence) > 0 and (cv2.waitKey(10) & 0xFF == ord('s')):  # 's'를 누를 때 문장 생성
+            generated_sentence = mk_sentence(temperature=temperature, project_id=project_id, location=location, words=sentence)
+            print("Generated Sentence: ", generated_sentence)
+
         cv2.imshow('OpenCV Feed', image)
 
-        # Break gracefully
         if cv2.waitKey(10) & 0xFF == ord('q'):
             break
+
     cap.release()
     cv2.destroyAllWindows()
