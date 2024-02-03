@@ -18,6 +18,19 @@ from scipy import stats
 log_dir = os.path.join(os.getcwd(),'Logs')
 actions = np.array(['Normal', 'Hi', 'Meet','Nice','Age','How','Ten','Feeling','Good','Next'])    # 가변
 
+# 영어 단어를 한글 단어로 매핑하는 사전
+word_map = {
+    'Hi': '안녕',
+    'Meet': '만나다',
+    'Nice': '좋다',
+    'Age': '나이',
+    'How': '어떻게',
+    'Ten': '10',
+    'Feeling': '느낌',
+    'Good': '좋다',
+    'Next': '다음'
+}
+
 mp_holistic = mp.solutions.holistic
 mp_drawing = mp.solutions.drawing_utils
 
@@ -119,7 +132,10 @@ with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=
     cv2.destroyAllWindows()
     
 Output = [item for sublist in Output for item in sublist]
-    
+
+# Output 리스트의 단어들을 한글 단어로 변환
+Output_korean = [word_map[word] if word in word_map else word for word in Output]
+
 from google.cloud import aiplatform
 import vertexai
 from vertexai.language_models import TextGenerationModel
@@ -158,5 +174,6 @@ def mk_sentence(
 
     return response.text
 
+# 변환된 한글 단어 리스트를 mk_sentence 함수에 넣어 실행
 if __name__ == "__main__":
-    mk_sentence(temperature=temperature, project_id=project_id, location=location, words=Output)
+    mk_sentence(temperature=temperature, project_id=project_id, location=location, words=Output_korean)
