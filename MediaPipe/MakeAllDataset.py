@@ -11,16 +11,16 @@ no_sequences = 10
 sequence_length = 35
 start_folder =40
 # actions = np.array(['기본', '안녕하세요', '만나다','반갑다','나이','어떻게 되나요?','10','기분','좋다','다음에'])    # 가변
-actions = np.array(['Normal', 'Hi', 'Meet','Nice','Age','How','Ten','Feeling','Good','Next'])    # 가변
+actions = np.array(['Nddf'])    # 가변
 
 
 DATA_PATH = os.path.join(os.getcwd(),'MP_Data') 
 # # 필요하다면..
-# os.makedirs(os.path.join(DATA_PATH))
+os.makedirs(os.path.join(DATA_PATH))
 
 # 각 Action의 Info를 저장할 폴더가 없다면
 for action in actions: 
-    # os.makedirs(os.path.join(DATA_PATH,action))
+    os.makedirs(os.path.join(DATA_PATH,action))
     
     for sequence in range(40,40+no_sequences):
         try: 
