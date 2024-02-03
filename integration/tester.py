@@ -118,6 +118,8 @@ with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=
     cap.release()
     cv2.destroyAllWindows()
     
+Output = [item for sublist in Output for item in sublist]
+    
 from google.cloud import aiplatform
 import vertexai
 from vertexai.language_models import TextGenerationModel
@@ -138,16 +140,16 @@ def mk_sentence(
     # TODO developer - override these parameters as needed:
     parameters = {
         "temperature": temperature,  # Temperature controls the degree of randomness in token selection.
-        "max_output_tokens": 2048,  # Token limit determines the maximum amount of text output.
+        "max_output_tokens": 1024,  # Token limit determines the maximum amount of text output.
         "top_p": 1,  # Tokens are selected from most probable to least until the sum of their probabilities equals the top_p value.
         "top_k": 0,  # A top_k of 1 means the selected token is the most probable among all tokens.
     }
     # 평탄화 과정 - 중첩 리스트를 단일 리스트로 변환
-    flat_list = [item for sublist in words for item in sublist] if words and isinstance(words[0], list) else words
+    # flat_list = [item for sublist in words for item in sublist] if words and isinstance(words[0], list) else words
 
     model = TextGenerationModel.from_pretrained("text-bison@001")
     # Combine the fixed prompt with the words list
-    prompt = "다음의 단어들을 순서대로 이용해서해서 자연스러운 대화형 문장 하나로 만들어줘. 이때 마지막이 물음표면 의문문으로 만들어줘. " + ",".join(flat_list)
+    prompt = "다음의 단어들을 순서대로 이용해서해서 자연스러운 대화형 문장 하나로 만들어줘. 이때 마지막이 물음표면 의문문으로 만들어줘. " + ",".join(words)
     response = model.predict(
         prompt,
         **parameters,
