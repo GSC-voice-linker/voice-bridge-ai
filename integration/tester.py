@@ -49,7 +49,7 @@ def extract_keypoints(results):
     rh = np.array([[res.x, res.y, res.z] for res in results.right_hand_landmarks.landmark]).flatten() if results.right_hand_landmarks else np.zeros(21*3)
     return np.concatenate([pose, lh, rh])
 
-model = load_model('Model2.h5')
+model = load_model('./Model2.h5')
 
 colors = [(245,117,16), (117,245,16), (16,117,245),(200,103,27),(245,117,16), (117,245,16), (16,117,245),(245,117,16), (117,245,16), (16,117,245)]
 
@@ -61,7 +61,7 @@ def prob_viz(res, actions, input_frame, colors):
     return output_frame
 
 # New code to load an mp4 file
-video_path = 'path_to_your_video_file.mp4'
+video_path = '/home/autonav/MediaTest/Hi.mp4'
 cap = cv2.VideoCapture(video_path)
 
 sequence = []
@@ -122,7 +122,7 @@ from google.cloud import aiplatform
 import vertexai
 from vertexai.language_models import TextGenerationModel
 
-project_id = "striped-strata-411107"
+project_id = "sibal-413208"
 location = "asia-northeast3"
 temperature = 0.9
 
@@ -142,10 +142,12 @@ def mk_sentence(
         "top_p": 1,  # Tokens are selected from most probable to least until the sum of their probabilities equals the top_p value.
         "top_k": 0,  # A top_k of 1 means the selected token is the most probable among all tokens.
     }
+    # 평탄화 과정 - 중첩 리스트를 단일 리스트로 변환
+    flat_list = [item for sublist in words for item in sublist] if words and isinstance(words[0], list) else words
 
     model = TextGenerationModel.from_pretrained("text-bison@001")
     # Combine the fixed prompt with the words list
-    prompt = "다음의 단어들을 순서대로 이용해서해서 자연스러운 대화형 문장 하나로 만들어줘. 이때 마지막이 물음표면 의문문으로 만들어줘. " + " ".join(words)
+    prompt = "다음의 단어들을 순서대로 이용해서해서 자연스러운 대화형 문장 하나로 만들어줘. 이때 마지막이 물음표면 의문문으로 만들어줘. " + ",".join(flat_list)
     response = model.predict(
         prompt,
         **parameters,
@@ -156,4 +158,3 @@ def mk_sentence(
 
 if __name__ == "__main__":
     mk_sentence(temperature=temperature, project_id=project_id, location=location, words=Output)
-
