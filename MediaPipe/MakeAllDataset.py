@@ -7,11 +7,11 @@ import mediapipe as mp
 
 mp_holistic = mp.solutions.holistic
 mp_drawing = mp.solutions.drawing_utils #Draw utilities 
-no_sequences = 10
+no_sequences = 80
 sequence_length = 35
-start_folder =40
+start_folder = 0
 # actions = np.array(['기본', '안녕하세요', '만나다','반갑다','나이','어떻게 되나요?','10','기분','좋다','다음에'])    # 가변
-actions = np.array(['Nddf'])    # 가변
+actions = np.array(['idea'])    # 가변
 
 
 DATA_PATH = os.path.join(os.getcwd(),'MP_Data') 
@@ -22,7 +22,7 @@ os.makedirs(os.path.join(DATA_PATH))
 for action in actions: 
     os.makedirs(os.path.join(DATA_PATH,action))
     
-    for sequence in range(40,40+no_sequences):
+    for sequence in range(0,0+no_sequences):
         try: 
             os.makedirs(os.path.join(DATA_PATH, action, str(sequence)))
         except:
