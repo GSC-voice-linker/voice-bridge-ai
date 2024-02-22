@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 import time
 import mediapipe as mp
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense,Dropout
+from tensorflow.keras.layers import LSTM, Dense,Dropout,BatchNormalization
 from tensorflow.keras.callbacks import TensorBoard
 from tensorflow.keras.callbacks import Callback
 from sklearn.model_selection import train_test_split
@@ -13,7 +13,7 @@ from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.optimizers import Adam
 
 def multiple_detection(image,model):
-    image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB) #Color convertion 
+    image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB) 
     image.flags.writeable = False
     results = model.process(image)
     image.flags.writeable = True
@@ -21,23 +21,20 @@ def multiple_detection(image,model):
     return image,results
     
 def draw_landmarks(image, results):
-    mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_holistic.POSE_CONNECTIONS) # Draw pose connections
-    mp_drawing.draw_landmarks(image, results.left_hand_landmarks, mp_holistic.HAND_CONNECTIONS) # Draw left hand connections
-    mp_drawing.draw_landmarks(image, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS) # Draw right hand connect
+    mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_holistic.POSE_CONNECTIONS)
+    mp_drawing.draw_landmarks(image, results.left_hand_landmarks, mp_holistic.HAND_CONNECTIONS) 
+    mp_drawing.draw_landmarks(image, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS) 
 
 
 def draw_styled_landmarks(image, results):
-    # Draw pose connections
     mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_holistic.POSE_CONNECTIONS,
                              mp_drawing.DrawingSpec(color=(80,22,10), thickness=2, circle_radius=4), 
                              mp_drawing.DrawingSpec(color=(80,44,121), thickness=2, circle_radius=2)
                              ) 
-    # Draw left hand connections
     mp_drawing.draw_landmarks(image, results.left_hand_landmarks, mp_holistic.HAND_CONNECTIONS, 
                              mp_drawing.DrawingSpec(color=(121,22,76), thickness=2, circle_radius=4), 
                              mp_drawing.DrawingSpec(color=(121,44,250), thickness=2, circle_radius=2)
                              ) 
-    # Draw right hand connections  
     mp_drawing.draw_landmarks(image, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS, 
                              mp_drawing.DrawingSpec(color=(245,117,66), thickness=2, circle_radius=4), 
                              mp_drawing.DrawingSpec(color=(245,66,230), thickness=2, circle_radius=2)
@@ -45,33 +42,33 @@ def draw_styled_landmarks(image, results):
 
 
 log_dir = os.path.join(os.getcwd(),'Logs')
-# actions = np.array(['Hi', 'Meet', 'Break Up','Nice','Smile','Crying','Normal','Me','You'])    # 가변
-# actions = np.array(['Hi', 'Meet', 'Break Up','Nice','Normal','Crying','Me','You'])    # 가변
-# actions = np.array(['Hi', 'Meet', 'Break Up','Nice','Normal','Me','You'])    # 가변
-actions = np.array(['Normal', 'Hi', 'Meet','Nice','Age','How','Ten','Feeling','Good','Next'])    # 가변
 
+actions = np.array(['Age', 'Attendance', 'Feeling','Good','Hi','How','Idea','Meet','Meeting','New','Nice','Normal','Plan','Possible','Q_mark','Ten'])    # 가변
 
 mp_holistic = mp.solutions.holistic
-mp_drawing = mp.solutions.drawing_utils #Draw utilities 
-
-# os.makedirs(log_dir)
+mp_drawing = mp.solutions.drawing_utils 
 tb_callback = TensorBoard(log_dir=log_dir)
 
 model = Sequential()
-model.add(LSTM(64, return_sequences=True, activation='relu', input_shape=(35,174)))
-model.add(LSTM(128, return_sequences=True, activation='relu'))
-model.add(LSTM(64, return_sequences=False, activation='relu'))
+model.add(LSTM(64, return_sequences=True, input_shape=(35, 174)))
+model.add(Dropout(0.2))
+model.add(BatchNormalization())  
+model.add(LSTM(128, return_sequences=True))
+model.add(Dropout(0.2)) 
+model.add(BatchNormalization()) 
+model.add(LSTM(64, return_sequences=False))
+model.add(Dropout(0.2))  
+model.add(BatchNormalization())  
 model.add(Dense(64, activation='relu'))
 model.add(Dense(32, activation='relu'))
 model.add(Dense(actions.shape[0], activation='softmax'))
-optimizer = Adam(learning_rate=0.001)  # 원하는 Learning Rate 값으로 설정
-model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['categorical_accuracy','categorical_crossentropy'])
+optimizer = Adam(learning_rate=0.0001)
+model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['categorical_accuracy', 'categorical_crossentropy'])
 
 
-DATA_PATH = os.path.join(os.getcwd(),'MP_Data') 
-no_sequences = 50
+
+DATA_PATH = os.path.join(os.getcwd(),'Dataset') 
 sequence_length = 35
-start_folder = 0
 
 label_map = {label:num for num, label in enumerate(actions)}
 
@@ -103,7 +100,7 @@ class MyThresholdCallback(Callback):
             self.model.stop_training = True
 callback=MyThresholdCallback(threshold=0.95)
 
-model.fit(X_train, y_train, epochs=500, callbacks=[callback])
-model.save('Model2.h5')
+model.fit(X_train, y_train, epochs=100, callbacks=[callback])
+model.save('Modeltmp7.h5')
 
 model.summary()
